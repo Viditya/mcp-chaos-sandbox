@@ -147,3 +147,14 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Add to .gitignore (or root .gitignore)
+*.txt
+*.docx
+
+# Large models, binaries, and local media captures
+llama.cpp/
+Moss-image/
+Moss-image-nsfw-uncensored-lora/
+backend/captures/
+*.mp4

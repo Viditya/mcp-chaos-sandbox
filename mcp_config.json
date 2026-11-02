@@ -1,0 +1,10 @@
+﻿{
+  "mcpServers": {
+    "video-analyzer": {
+      "command": "node",
+      "args": [
+        "D:\Code\Kalki\mcp-video-analyzer\index.js"
+      ]
+    }
+  }
+}
