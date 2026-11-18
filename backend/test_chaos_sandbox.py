@@ -4,6 +4,7 @@ Run via: pytest test_chaos_sandbox.py -v
 """
 
 
+import asyncio
 import pytest
 from pydantic import ValidationError
 from schemas import (
@@ -65,8 +66,7 @@ def test_system1_gatekeeper_confidence_and_loop_breaker() -> None:
 
 
 
-@pytest.mark.asyncio
-async def test_omission_fault_truncates_to_30_percent() -> None:
+def test_omission_fault_truncates_to_30_percent() -> None:
     """Verifies Omission Fault truncates content to 30% and forces finish_reason='length'."""
     cfg = ChaosConfig(
         experiment_id="exp-omission-1",
@@ -91,7 +91,7 @@ async def test_omission_fault_truncates_to_30_percent() -> None:
         }
 
 
-    status, mutated, ratio, fired = await execute_with_chaos_harness(dummy_call)
+    status, mutated, ratio, fired = asyncio.run(execute_with_chaos_harness(dummy_call))
     assert fired is True
     assert status == 200
     assert ratio == 1.00
@@ -102,8 +102,7 @@ async def test_omission_fault_truncates_to_30_percent() -> None:
 
 
 
-@pytest.mark.asyncio
-async def test_burst_strategy_fires_three_consecutive_calls() -> None:
+def test_burst_strategy_fires_three_consecutive_calls() -> None:
     """Verifies Burst(3) fires on calls 2, 3, and 4, and leaves call 1 and 5 clean."""
     cfg = ChaosConfig(
         experiment_id="exp-burst-3",
@@ -119,12 +118,16 @@ async def test_burst_strategy_fires_three_consecutive_calls() -> None:
         return {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]}
 
 
-    results = []
-    for _ in range(5):
-        status, _, _, fired = await execute_with_chaos_harness(dummy_call)
-        results.append((status, fired))
+    async def run_burst():
+        res = []
+        for _ in range(5):
+            status, _, _, fired = await execute_with_chaos_harness(dummy_call)
+            res.append((status, fired))
+        c, f = get_task_chaos_counters()
+        return res, c, f
 
 
+    results, calls, fires = asyncio.run(run_burst())
     assert results == [
         (200, False),  # Call 1
         (500, True),   # Call 2 (Burst 1)
@@ -132,6 +135,5 @@ async def test_burst_strategy_fires_three_consecutive_calls() -> None:
         (500, True),   # Call 4 (Burst 3)
         (200, False),  # Call 5
     ]
-    calls, fires = get_task_chaos_counters()
     assert calls == 5
     assert fires == 3

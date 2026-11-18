@@ -159,3 +159,6 @@ Moss-image-nsfw-uncensored-lora/
 backend/captures/
 *.mp4
 *.gguf
+
+__pycache__/
+*.pyc

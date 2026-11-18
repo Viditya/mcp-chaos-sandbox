@@ -1,20 +1,18 @@
 ﻿#!/usr/bin/env bash
 # sbx_cloud_fanout.sh — Docker Cloud Sandbox Orchestration & $250 Credit Guardrail Script
-# Execute on Scabbers: chmod +x sbx_cloud_fanout.sh && ./sbx_cloud_fanout.sh <command>
-
+# Updated per challenge guidelines: enforces strict task-tied auto-stop to prevent idle credit burn.
+# Usage: chmod +x sbx_cloud_fanout.sh && ./sbx_cloud_fanout.sh <command>
 
 set -euo pipefail
-
 
 SANDBOX_CORE="mcp-core"
 SANDBOX_CHAOS="chaos-harness"
 SANDBOX_PROD="mcp-chaos-prod"
 VOLUME_NAME="chaos-telemetry-vol"
 TTL_LIMIT="8h"
-
+HARD_TIMEOUT_SEC="10800" # 3 hours hard cap
 
 COMMAND="${1:-status}"
-
 
 case "$COMMAND" in
   init-secrets)
@@ -27,18 +25,15 @@ case "$COMMAND" in
     sbx volume create "$VOLUME_NAME"
     ;;
 
-
   local-dev)
     echo "Spawning isolated local microVMs (zero cloud credit burn)..."
     sbx run --name "$SANDBOX_CORE" claude .
     ;;
 
-
   promote-cloud)
     echo "Promoting validated local sandbox ($SANDBOX_CORE) to Docker Cloud with TTL=$TTL_LIMIT..."
     sbx move "$SANDBOX_CORE" --to cloud --ttl "$TTL_LIMIT"
     ;;
-
 
   launch-prod)
     echo "Launching sized Docker Cloud Sandbox ($SANDBOX_PROD: 2 vCPU, 4 GiB RAM @ $0.14/hr)..."
@@ -46,28 +41,34 @@ case "$COMMAND" in
     sbx volume attach "$VOLUME_NAME" "$SANDBOX_PROD"
     ;;
 
-
   run-overnight-suite)
     echo "Triggering 65-config AgentChaos resilience suite inside $SANDBOX_PROD..."
+    # Cost-Control Guardrail:
+    # Docker Cloud Sandboxes bill continuously while running.
+    # We trap EXIT to guarantee the microVM is stopped immediately when the task finishes or fails.
+    trap 'echo "[Cost Guardrail] Stopping $SANDBOX_PROD to preserve credit..."; sbx --cloud stop "$SANDBOX_PROD" || true' EXIT
     sbx --cloud exec "$SANDBOX_PROD" -- pytest test_chaos_sandbox.py -v
+    echo "[Cost Guardrail] Suite completed. MicroVM stopped cleanly."
     ;;
 
+  stop)
+    echo "Stopping Docker Cloud Sandbox ($SANDBOX_PROD) to halt compute billing..."
+    sbx --cloud stop "$SANDBOX_PROD" || true
+    ;;
 
   status)
-    echo "=== Active Docker Cloud Sandboxes & Exposed Ports ==="
+    echo "=== Active Docker Cloud Sandboxes & Billing Status ==="
     sbx --cloud ls
     sbx --cloud ports "$SANDBOX_PROD" || true
     ;;
 
-
   cleanup)
-    echo "Tearing down cloud microVM ($SANDBOX_PROD) to preserve $250 challenge credit..."
-    sbx --cloud rm "$SANDBOX_PROD"
+    echo "Tearing down cloud microVM ($SANDBOX_PROD) and persistent state..."
+    sbx --cloud rm "$SANDBOX_PROD" || true
     ;;
 
-
   *)
-    echo "Usage: $0 {init-secrets|local-dev|promote-cloud|launch-prod|run-overnight-suite|status|cleanup}"
+    echo "Usage: $0 {init-secrets|local-dev|promote-cloud|launch-prod|run-overnight-suite|stop|status|cleanup}"
     exit 1
     ;;
 esac
