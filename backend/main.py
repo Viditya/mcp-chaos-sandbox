@@ -7,10 +7,17 @@ SSE Telemetry Stream, and Stage-Level Aggregator Ground-Truth Verification.
 import asyncio
 from contextlib import asynccontextmanager
 import json
+import os
+from pathlib import Path
 from typing import AsyncGenerator, Dict, Any, List
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import StreamingResponse
+
+# Load environment configuration from root .env if present
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 from schemas import (
@@ -87,7 +94,8 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "mcp_session_ready": getattr(app.state, "mcp_session_ready", False),
-        "sandbox_mode": "docker-cloud-microvm",
+        "sandbox_mode": os.getenv("SANDBOX_MODE", "docker-cloud-microvm"),
+        "environment": os.getenv("SANDBOX_ENV", "development"),
     }
 
 
@@ -280,3 +288,11 @@ async def stream_chaos_telemetry(session_id: str = "demo-session") -> StreamingR
 
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# Mount built React frontend if dist exists
+from fastapi.staticfiles import StaticFiles
+
+frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
