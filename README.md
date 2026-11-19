@@ -6,7 +6,7 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688.svg)](https://fastapi.tiangolo.com/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-0.4.1-orange.svg)](https://github.com/jlowin/fastmcp)
-[![Tests Passing](https://img.shields.io/badge/tests-4%2F4%20passed-brightgreen.svg)]()
+[![Tests Passing](https://img.shields.io/badge/tests-9%2F9%20passed-brightgreen.svg)]()
 [![Docker Sandboxes](https://img.shields.io/badge/Docker-sbx%20cloud%20microVM-2496ED.svg)](https://docs.docker.com/ai/sandboxes/)
 
 ---
@@ -93,11 +93,11 @@ Following official challenge best practices, `backend/sbx_cloud_fanout.sh` guara
 
 ## 🧪 Verification & Test Suite
 
-All 4 test scenarios pass deterministically with zero third-party async dependencies:
+All 9 test scenarios (unit resilience and API integration) pass deterministically:
 
 ```bash
-# Run pytest verification
-pytest backend/test_chaos_sandbox.py -v
+# Run complete test verification suite
+pytest backend/ -v
 ```
 
 ### Verified Test Matrix:
@@ -107,12 +107,30 @@ pytest backend/test_chaos_sandbox.py -v
 | `test_system1_gatekeeper_confidence_and_loop_breaker` | Enforces 70% threshold and trips circuit on 2 strikes | ✅ PASSED |
 | `test_omission_fault_truncates_to_30_percent` | Injects 30% truncation + forces `finish_reason='length'` | ✅ PASSED |
 | `test_burst_strategy_fires_three_consecutive_calls` | Exercises Burst(3) on calls 2, 3, 4 while keeping 1 & 5 clean | ✅ PASSED |
+| `test_health_check_endpoint` | Validates ASGI health status and dynamic `.env` environment | ✅ PASSED |
+| `test_mcp_register_tool_auth_required` | Validates JWT bearer token and MCP scope contracts | ✅ PASSED |
+| `test_aggregator_ground_truth_interception` | Validates stage-level override of corrupted summaries | ✅ PASSED |
+| `test_chaos_execute_clean_run` | Validates live tool execution and telemetry recording | ✅ PASSED |
+| `test_frontend_root_static_serving` | Verifies root GET `/` delivers compiled React 18 UI bundle | ✅ PASSED |
 
 ---
 
 ## 🚀 Quickstart & Reproducibility Guide
 
-### Local Reproduction (No Docker or Cloud Credit Required)
+### Option 1: Docker / Docker Compose (One-Command Reproducibility)
+
+```bash
+# Clone and launch in one step
+git clone https://github.com/Viditya/mcp-chaos-sandbox.git
+cd mcp-chaos-sandbox
+docker compose up --build
+```
+* Dashboard & Telemetry: `http://localhost:8000`
+* OpenAPI / FastMCP Docs: `http://localhost:8000/docs`
+
+---
+
+### Option 2: Local Python & Node.js
 
 1. **Clone the repository:**
    ```bash
@@ -131,18 +149,26 @@ pytest backend/test_chaos_sandbox.py -v
    pip install -r backend/requirements.txt
    ```
 
-3. **Run the test suite:**
+3. **Build the React frontend:**
    ```bash
-   pytest backend/test_chaos_sandbox.py -v
+   cd frontend
+   npm install
+   npm run build
+   cd ..
    ```
 
-4. **Start the FastAPI + FastMCP ASGI server:**
+4. **Run the full test suite:**
+   ```bash
+   pytest backend/ -v
+   ```
+
+5. **Start the FastAPI + FastMCP ASGI server:**
    ```bash
    uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
    ```
+   * Live Dashboard: `http://127.0.0.1:8000`
    * Health Check: `http://127.0.0.1:8000/health`
    * SSE Stream: `http://127.0.0.1:8000/api/v1/chaos/stream`
-   * OpenAPI Specs: `http://127.0.0.1:8000/docs`
 
 ---
 

@@ -1,0 +1,21 @@
+services:
+  mcp-chaos-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-chaos-sandbox
+    ports:
+      - "8000:8000"
+    environment:
+      - SANDBOX_ENV=production
+      - SANDBOX_MODE=docker-cloud-microvm
+      - SANDBOX_BEARER_TOKEN=sandbox-test-token-12345
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
